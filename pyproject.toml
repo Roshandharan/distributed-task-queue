@@ -1,0 +1,38 @@
+[project]
+name = "taskq"
+version = "0.1.0"
+description = "A distributed task queue built from primitives: Redis for dispatch, PostgreSQL for state."
+requires-python = ">=3.11"
+dependencies = [
+    "redis>=5.0",
+    "psycopg[binary,pool]>=3.1",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.5", "pyyaml>=6"]
+
+[project.scripts]
+taskq = "taskq.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["taskq"]
+
+[tool.setuptools.package-data]
+taskq = ["schema.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

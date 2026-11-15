@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: redis}
+  template:
+    metadata:
+      labels: {app: redis}
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          # No persistence on purpose: Redis only holds dispatch order, and the
+          # reconciler rebuilds it from PostgreSQL after a restart.
+          args: ["--save", "", "--appendonly", "no"]
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec: {command: ["redis-cli", "ping"]}
+            periodSeconds: 3
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {memory: 512Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  selector: {app: redis}
+  ports:
+    - port: 6379

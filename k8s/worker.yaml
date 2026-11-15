@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: worker}
+  template:
+    metadata:
+      labels: {app: worker}
+    spec:
+      # On SIGTERM a worker stops claiming and finishes its in-flight jobs.
+      # Anything still running when the grace period ends is recovered by
+      # another worker once its lease expires.
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker
+          image: taskq:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "taskq", "worker", "--tasks", "examples.tasks", "--concurrency", "4"]
+          envFrom:
+            - configMapRef: {name: taskq-config}
+            - secretRef: {name: taskq-secrets}
+          resources:
+            requests: {cpu: 250m, memory: 128Mi}
+            limits: {memory: 256Mi}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker
+  minReplicas: 3
+  maxReplicas: 12
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: worker
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels: {app: worker}

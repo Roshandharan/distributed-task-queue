@@ -1,0 +1,39 @@
+# Local stack: docker compose up --build --scale worker=3
+services:
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      retries: 15
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: taskq
+      POSTGRES_DB: taskq
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d taskq"]
+      interval: 2s
+      retries: 15
+
+  api:
+    build: .
+    command: ["python", "-m", "taskq", "api"]
+    environment: &env
+      TASKQ_REDIS_URL: redis://redis:6379/0
+      TASKQ_DATABASE_URL: postgresql://postgres:taskq@postgres:5432/taskq
+    ports:
+      - "8000:8000"
+    depends_on: &deps
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: ["python", "-m", "taskq", "worker", "--tasks", "examples.tasks", "--concurrency", "4"]
+    environment: *env
+    depends_on: *deps
+    stop_grace_period: 60s
